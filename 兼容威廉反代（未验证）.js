@@ -19,15 +19,11 @@ const CONFIG = {
   API_DIFF: '',       // 反代取自 fdip API
 
   IPS: [              // 固定优选（可留空）
-    'cf.qmqm.cf:443#官方',
+    'cdn.qmqm.cf:443#官方',
     'mfa.gov.ua:443#官方',
   ],
 
   FDIP: [             // 固定反代（支持 William 域名！）
-    'tw.william.us.ci#台湾',
-    'hk.william.us.ci#香港',
-    'jp.william.us.ci#日本',
-    'sg.william.us.ci#新加坡',
     'us.proxyip.com:443#美国固定',
   ],
 
