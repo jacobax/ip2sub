@@ -24,8 +24,16 @@ const CONFIG = {
   ],
 
   FDIP: [             // 固定反代（支持 William 域名！）
-    'us.proxyip.com:443#美国固定',
+    'us.proxyip.com:443#US',
   ],
+
+  // ===== 新增：TXT 动态域名规则表（想加多少加多少）=====
+  TXT_RULES [
+  // 规则格式：{ keywords: ['william'], tld: 'us.ci' }   // 可选 tld，方便以后只匹配特定后缀
+  { keywords: ['william'] },                         // 现有 William
+  { keywords: ['abc123', 'xyz789'] },                // 假设以后出现的
+  // 继续往下加就行……
+  ];
 
   KV_FDIP_KEY: 'FDIP_LIST',   // KV 源反代（支持 William 域名）
 };
@@ -43,8 +51,12 @@ async function 解析FDIP(raw) {
   let [addr, comment = ''] = raw.split('#');
   addr = addr.trim().toLowerCase();
 
-  // 1. William 域名解析
-  if (addr.includes('.william')) {
+  // ===== 通用 TXT 动态域名解析（支持配置表里所有关键词）=====
+  const matchedRule = TXT_RULES.find(rule => 
+    rule.keywords.some(kw => addr.includes(kw))
+  );
+
+  if (matchedRule) {
     try {
       const resp = await fetch(`https://1.1.1.1/dns-query?name=${encodeURIComponent(addr)}&type=TXT`, {
         headers: { 'accept': 'application/dns-json' }
@@ -54,6 +66,7 @@ async function 解析FDIP(raw) {
         const txts = (json.Answer || [])
           .filter(r => r.type === 16)
           .map(r => r.data.replace(/^"|"$/g, ''));
+
         if (txts.length > 0) {
           const candidates = txts.join('')
             .replace(/\\010/g, ',')
@@ -61,17 +74,20 @@ async function 解析FDIP(raw) {
             .split(',')
             .map(s => s.trim())
             .filter(s => s && (isIPv4(s) || isIPv6(s)));
+
           if (candidates.length > 0) {
             addr = candidates[Math.floor(Math.random() * candidates.length)];
+            log(`TXT动态解析成功 → \( {addr} (来自 \){raw})`);
           }
         }
       }
     } catch (e) {
-      console.error('William解析失败', addr, e);
+      console.error('TXT动态域名解析失败', addr, e);
+      // 解析失败仍然继续用原域名（降级使用）
     }
   }
 
-  // 2. 通用地址+端口解析
+  // ===== 下面保持原样：.tp 端口解析 + 标准 ip:port 解析 =====
   let host = addr;
   let port = 443;
 
@@ -89,7 +105,7 @@ async function 解析FDIP(raw) {
     port = parseInt(addr.slice(last + 1), 10) || 443;
   }
 
-  if (!host || (!isIPv4(host) && !isIPv6(host) && !host.includes('.william') && !host.includes('.tp'))) {
+  if (!host || (!isIPv4(host) && !isIPv6(host) && !host.includes('.tp') && !matchedRule)) {
     return null;
   }
 
